@@ -31,10 +31,10 @@
    https://github.com/sirius-ai/LPRNet_Pytorch
 
 ### 数据集
-
-​	UA-DETRAC：车辆检测跟踪数据集
-
-​	VRIC：车辆重识别数据集
-
-​	CCPD：车牌检测与识别数据集
+​UA-DETRAC：车辆检测跟踪数据集
+https://detrac-db.rit.albany.edu/
+​VRIC：车辆重识别数据集
+https://detrac-db.rit.albany.edu/
+​CCPD：车牌检测与识别数据集
+https://github.com/detectRecog/CCPD
 
