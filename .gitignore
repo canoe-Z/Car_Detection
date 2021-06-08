@@ -2,7 +2,7 @@
 yolov5/
 runs/
 data/
-models/yolo/
+models/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
