@@ -1,8 +1,8 @@
 .vscode/
-yolov5/
-runs/
-data/
-models/
+/yolov5
+/runs
+/data
+/models
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
