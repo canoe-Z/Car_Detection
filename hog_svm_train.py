@@ -7,38 +7,48 @@ import random
 
 from cv2 import cv2
 
-from common import convert_bouding_box
+from dets.common import convert_bouding_box
 
 
 # 提取正样本
-def extract_img(images_folder, labels_folder, wsize=(80, 80)):
+# def extract_img(images_folder, labels_folder, wsize=(80, 80)):
+#     imgs = []
+#     path = glob.glob(os.path.join(images_folder, '*.jpg'))
+#     pbar = tqdm(path)
+#     for file in pbar:
+#         pbar.set_description("Extracting {}:".format(labels_folder))
+#         img = cv2.imread(file)
+#         label_filename = os.path.split(file)[1].split('.')[0]+'.txt'
+#         label_file = os.path.join(labels_folder, label_filename)
+#         with open(label_file) as f:
+#             for line in f.readlines():
+#                 line = line.strip('\n')
+#                 value = line.split(' ')
+#                 bx = eval(value[1])
+#                 by = eval(value[2])
+#                 bw = eval(value[3])
+#                 bh = eval(value[4])
+#                 xmin, ymin, xmax, ymax = convert_bouding_box(
+#                     img, bx, by, bw, bh)
+#                 roi = img[ymin:ymax, xmin:xmax]
+#                 roi_resized = cv2.resize(roi, wsize)
+#                 # cv2.namedWindow('test')
+#                 # cv2.imshow('test',roi_resized)
+#                 # cv2.waitKey(-1)
+#                 imgs.append(roi_resized)
+
+#     return imgs
+
+def read_img(images_folder, wsize=(80, 80)):
     imgs = []
     path = glob.glob(os.path.join(images_folder, '*.jpg'))
     pbar = tqdm(path)
     for file in pbar:
-        pbar.set_description("Extracting {}:".format(labels_folder))
         img = cv2.imread(file)
-        label_filename = os.path.split(file)[1].split('.')[0]+'.txt'
-        label_file = os.path.join(labels_folder, label_filename)
-        with open(label_file) as f:
-            for line in f.readlines():
-                line = line.strip('\n')
-                value = line.split(' ')
-                bx = eval(value[1])
-                by = eval(value[2])
-                bw = eval(value[3])
-                bh = eval(value[4])
-                xmin, ymin, xmax, ymax = convert_bouding_box(
-                    img, bx, by, bw, bh)
-                roi = img[ymin:ymax, xmin:xmax]
-                roi_resized = cv2.resize(roi, wsize)
-                # cv2.namedWindow('test')
-                # cv2.imshow('test',roi_resized)
-                # cv2.waitKey(-1)
-                imgs.append(roi_resized)
+        roi_resized = cv2.resize(img, wsize)
+        imgs.append(roi_resized)
 
     return imgs
-
 
 # 获取Hard Sample
 def get_neg_hardsample(neg_imgs, svm):
@@ -74,8 +84,11 @@ def computeHOGs(imgs, wsize=(80, 80)):
 
 
 def main():
-    pos_imgs = extract_img('../hog_pos/images', '../hog_pos/labels')
-    neg_imgs = extract_img('../labelme_neg/images', '../labelme_neg/labels')
+    #pos_imgs = extract_img('../hog_pos/images', '../hog_pos/labels')
+    #neg_imgs = extract_img('../labelme_neg/images', '../labelme_neg/labels')
+
+    pos_imgs=read_img('C:/hog_pos')
+    neg_imgs=read_img('C:/neg_pick')
 
     pos_hog = computeHOGs(pos_imgs)
     neg_hog = computeHOGs(neg_imgs)
@@ -88,9 +101,9 @@ def main():
 
     svm = cv2.ml.SVM_create()
     svm.setType(cv2.ml.SVM_C_SVC)
-    svm.setKernel(cv2.ml.SVM_RBF)
-    svm.setGamma(0.01)
-    svm.setC(10)
+    svm.setKernel(cv2.ml.SVM_LINEAR)
+    svm.setGamma(0.005)
+    svm.setC(3)
     svm.train(np.array(pos_hog+neg_hog), cv2.ml.ROW_SAMPLE, np.array(labels))
     svm.save("svm.xml")
 

@@ -1,24 +1,37 @@
-import torch
+from dets.HaarDectector import HaarDetector
 from cv2 import cv2
-from PIL import Image
+from dets.YOLODetector import YOLODetector
+from dets.common import draw_bouding_box_yolo, draw_bouding_box
+import time
 
 
 def main():
-    model = torch.hub.load('ultralytics/yolov5',
-                           'custom', path='./best_ccpd.pt')
-    model.conf = 0.5
-    cap = cv2.VideoCapture('./test2.flv')
-    frames = []
-    for _ in range(3000):
-        ret, frame = cap.read()
-    for _ in range(100):
-        ret, frame = cap.read()
+    det = YOLODetector('./models/yolo/best_bdd100.pt', 0.25)
+    #det = HaarDetector()
+    cap = cv2.VideoCapture('./data/video-02.mp4')
+    i=0
+    Tracker={}
+    while True:
+        start_time = time.time()
+
+        _, frame = cap.read()
         if frame is None:
-                break
-        frame = Image.fromarray(cv2.cvtColor(frame,cv2.COLOR_BGR2RGB))
-        frames.append(frame)
-    results = model(frames)
-    results.save()
+            break
+        preds = det.detect(frame)
+
+        for pred in preds:
+            bx, by, bw, bh, conf, _ = pred
+            draw_bouding_box(frame, bx, by, bw, bh, conf)
+            #draw_bouding_box_yolo(frame, bx, by, bw, bh, conf)
+        end_time = time.time()
+        if (end_time != start_time):
+            fps = 1.0/(end_time - start_time)
+        i+=1
+        cv2.putText(frame, 'FPS: ' + str(int(fps)), (20, 30),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 255), 2)
+        print(fps)
+        cv2.imshow('test', frame)
+        cv2.waitKey(1)
 
 
 if __name__ == "__main__":
