@@ -1,9 +1,5 @@
-from trackers.BaseTracker import BaseTracker
-
-
-class IOUTracker(BaseTracker):
+class IOUTracker():
     def __init__(self):
-        super(BaseTracker, self).__init__()
         self.tracker = {}
         self.frame_num = 0
         self.maxed_id = 0
