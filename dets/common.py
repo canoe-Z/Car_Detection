@@ -70,11 +70,15 @@ def draw_bouding_box(img, xmin, ymin, xmax, ymax, id: int = None, conf=None):
     x2 = int(xmax)
     y2 = int(ymax)
 
+    label = 'car'
+    if id is not None:
+        label += (':'+str(id))
+
     if conf == None:
-        plot_one_box((x1, y1, x2, y2), img, (0, 0, 255), str(id), 3)
+        plot_one_box((x1, y1, x2, y2), img, (0, 0, 255), label, 3)
     else:
         plot_one_box((x1, y1, x2, y2), img, (0, 0, 255),
-                     str(id)+'{:.2f}'.format(conf), 3)
+                     label+'{:.2f}'.format(conf), 3)
 
 
 # 滑窗
