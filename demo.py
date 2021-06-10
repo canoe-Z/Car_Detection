@@ -1,141 +1,79 @@
 from cv2 import cv2
 from dets.YOLODetector import YOLODetector
-from dets.common import draw_bouding_box_yolo, draw_bouding_box, convert_yolo_box
+from dets.common import draw_bbs_ids
+from trackers.IOUTracker import IOUTracker
+from trackers.sort import *
+from deep_sort.utils.parser import get_config
+from deep_sort.deep_sort import DeepSort
+import torch
 
 
 def main():
-    det = YOLODetector('./models/yolo/ua_best_old.pt', 0.25)
-    Tracker = {}
-    cap = cv2.VideoCapture('./data/cars.mp4')
+    cfg = get_config()
+    cfg.merge_from_file("deep_sort/configs/deep_sort.yaml")
+    deepsort = DeepSort(cfg.DEEPSORT.REID_CKPT,
+                        max_dist=cfg.DEEPSORT.MAX_DIST, min_confidence=cfg.DEEPSORT.MIN_CONFIDENCE,
+                        nms_max_overlap=cfg.DEEPSORT.NMS_MAX_OVERLAP, max_iou_distance=cfg.DEEPSORT.MAX_IOU_DISTANCE,
+                        max_age=cfg.DEEPSORT.MAX_AGE, n_init=cfg.DEEPSORT.N_INIT, nn_budget=cfg.DEEPSORT.NN_BUDGET,
+                        use_cuda=True)
+
+    det = YOLODetector('./models/yolo/best_300.pt', 0.5)
+    tracker = IOUTracker()
+    # tracker = Sort()  # Sort方法多目标追踪
+    cap = cv2.VideoCapture('./data/video-02.mp4')
     cv2.namedWindow('test')
-    for frames in range(10000):
+
+    #result = []
+    for _ in range(1000):
         _, frame = cap.read()
         if frame is None:
             break
-        preds = det.detect(frame)
+        dets = det.detect(frame)  # preds是numpy array 一行代表一个目标
+        # IOU Track方法
+        outputs = tracker.update(dets)
+        #print(tf)
 
-        rows = frame.shape[0]
-        cols = frame.shape[1]
-        myp = []
-        for pred in preds:
-            xmin,ymin,xmax,ymax, conf, _ = pred
-            bx, by, bw, bh=convert_yolo_box(frame,xmin,ymin,xmax,ymax)
-            myp.append([bx, by, bw, bh])
-        IOU_Tracker(myp, frames, Tracker, frame)
-        plot_rec(frame, Tracker)
+        # bbox_xywh = []
+        # confs = []
+        # clss = []
 
-        # for pred in myp:
-        #     bx, by, bw, bh = pred
-        #     draw_bouding_box_yolo(frame, bx, by, bw, bh)
+        # # Adapt detections to deep sort input format
+        # if len(dets):
+        #     for x1, y1, x2, y2, conf, _ in dets:
+
+        #         obj = [
+        #             int((x1+x2)/2), int((y1+y2)/2),
+        #             int(x2-x1), int(y2-y1)
+        #         ]
+        #         bbox_xywh.append(obj)
+        #         confs.append(conf)
+        #         clss.append(1)
+
+        #     xywhs = torch.Tensor(bbox_xywh)
+        #     confss = torch.Tensor(confs)
+
+        #     # Pass detections to deepsort
+        #     outputs = deepsort.update(xywhs, confss, frame)
+        #     print(outputs)
+
+        draw_bbs_ids(frame, outputs)
+
+        # Sort方法
+        # track = mot_tracker.update(dets)
+        # draw_bbs_ids(frame, track)`
 
         cv2.imshow('test', frame)
         cv2.waitKey(1)
 
-# preds是当前帧预测到的所有位置（列表）,frames是当前帧数,Tracker是之前的跟踪字典,img是当前图像
-
-
-def IOU_Tracker(preds, frames, Tracker, img):
-    is_Track = {}  # 用来标志上一帧的目标是否被跟踪上
-    T_IOU = 0.2  # 判断IOU的阈值
-    rows = img.shape[0]
-    cols = img.shape[1]
-    # 反归一化,中心坐标以及框的宽高
-    for pred in preds:
-        pred[0] *= cols
-        pred[1] *= rows
-        pred[2] *= cols
-        pred[3] *= rows
-
-    # 当前帧是第一帧，初始化跟踪字典
-    if(frames == 0):
-        count = 0  # 计数,id值
-        for pred in preds:  # 当前检测到的目标加入字典
-            Tracker[count] = pred
-            count += 1  # 计数+1
-
-    # 初始化is_Track,标志是否处理过
-    for track in list(Tracker.keys()):
-        is_Track[track] = 0
-
-    # 首先利用阈值对检测器的检测结果进行过滤，是否能返回检测置信度?
-
-    # 对当前帧每一个检测位置，找与其IOU最大的跟踪位置
-    for pred in preds:
-        rec1 = []  # 当前帧检测框的矩形
-        rec1.append(pred[0]-pred[2]/2)
-        rec1.append(pred[1]-pred[3]/2)
-        rec1.append(pred[0]+pred[2]/2)
-        rec1.append(pred[1]+pred[3]/2)
-
-        # 遍历所有的跟踪框,找最大IOU
-        max_IOU = -1
-        max_id = 0  # 记录最大IOU的跟踪框的ID
-        # print(Tracker.values())
-
-        for id, track in zip(Tracker.keys(), list(Tracker.values())):
-            rec2 = []
-            rec2.append(track[0]-track[2]/2)
-            rec2.append(track[1]-track[3]/2)
-            rec2.append(track[0]+track[2]/2)
-            rec2.append(track[1]+track[3]/2)
-            current_IOU = IOU(rec1, rec2)
-            if(max_IOU < 0):  # 初始化最大值
-                max_IOU = current_IOU
-                max_id = id
-            if(current_IOU > max_IOU):  # 找最大值
-                max_IOU = current_IOU
-                max_id = id
-
-        # 判断IOU是否大于给定的阈值
-        if(max_IOU > T_IOU):  # 大于，说明是一个跟踪中的目标，更新跟踪位置
-            Tracker[max_id] = rec1
-            is_Track[max_id] = 1
-        elif(0 < max_IOU <= T_IOU):  # 小于阈值，进一步判断
-            # 判断轨迹已经持续的帧数是否大于阈值?大于阈值则认为目标消失了?
-            # 认为目标消失,从字典中剔除
-            Tracker.pop(max_id, None)
-            is_Track.pop(max_id, None)
-
-        # 没有相匹配的框,认为出现了一个新目标，目标加入字典,id值取当前最大id值+1
-        # 找当前最大的目标id值
-        if(max_IOU <= 0):
-            if Tracker:
-                Tracker[int(list(Tracker.keys())[-1])+1] = rec1
-            else:
-                Tracker[0] = rec1
-
-    # 看看之前帧跟踪的目标是否都已操作过，若未操作则剔除
-    for id, is_track in zip(is_Track.keys(), list(is_Track.values())):
-        if(is_track == 0):  # 剔除目标
-            Tracker.pop(id, None)
-
-    # 至此已完成一次循环
-
-
-# 计算两个矩形框的IOU,矩形框用左上角坐标和右下角坐标表示
-def IOU(rec1, rec2):
-    summ = ((rec1[3]-rec1[1])*(rec1[2]-rec1[0])) + \
-        ((rec2[3]-rec2[0])*(rec2[2]-rec2[0]))
-    left = max(rec1[0], rec2[0])
-    right = min(rec1[2], rec2[2])
-    top = max(rec1[1], rec2[1])
-    bottom = min(rec1[3], rec2[3])
-    # 判断是否是矩形
-    if left >= right or top >= bottom:
-        return 0
-    else:
-        inter = (right-left)*(bottom-top)
-        return (inter/(summ-inter))*1.0
-
-
-# 画出跟踪框
-def plot_rec(img, Tracker):
-    for id, track in zip(Tracker.keys(), list(Tracker.values())):
-        pt1 = (int(track[0]), int(track[1]))
-        pt2 = (int(track[2]), int(track[3]))
-        cv2.rectangle(img, pt1, pt2, (128, 128, 128), -1, cv2.LINE_AA)  # 检测框
-        cv2.putText(img, str(id), (pt1[0], pt1[1]-2),
-                    0, 2, (255, 255, 255), 2, cv2.LINE_AA)  # id值
+    print('Final')
+    # output_video('./out/result.avi', result)
+    '''
+        for id, track in tracks:
+            x1, y1, x2, y2 = track
+            draw_bouding_box(frame, x1, y1, x2, y2, id)
+        cv2.imshow('test', frame)
+        cv2.waitKey(0)
+        '''
 
 
 if __name__ == "__main__":

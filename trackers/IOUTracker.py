@@ -1,99 +1,98 @@
-from cv2 import cv2
-from dets.common import draw_bouding_box
-#IOU track类
-class IOU_Tracker(): 
+class IOUTracker():
     def __init__(self):
-        self.frames=0
-        self.Tracker={}#全局
-        self.maxed_id=0
-    #每帧初始化预测值及图像
-    def init(self,detect,pic):
-        self.preds=detect.tolist()
-        self.img=pic
-    #追踪器
-    def update(self):
-        T_IOU=0.5#判断IOU的阈值
-        is_Track={}#用来标志上一帧的目标是否被跟踪上
-        rows = self.img.shape[0]
-        cols = self.img.shape[1]
-        #当前帧是第一帧，初始化跟踪字典
-        if(self.frames==0):
-            for count,pred in enumerate(self.preds):#当前检测到的目标加入字典
-                rec=[]
-                rec.append(pred[0])
-                rec.append(pred[1])
-                rec.append(pred[2])
-                rec.append(pred[3])
-                self.Tracker[count]=rec
-                if(self.maxed_id<count):
-                    self.maxed_id=count
-        #初始化is_Track,标志是否处理过            
-        for track in list(self.Tracker.keys()):
-            is_Track[track]=0
+        self.frames = 0
+        self.Ta = {}  # {id:[x0,y0,x1,y1,score],...} active
+        self.Tf = {}  # finished
+        self.last_time = {}  # 记录轨迹持续的时间
+        self.highest_score = {}  # 记录轨迹最大的score
+        self.maxed_id = 0
+        self.set_parameters()
+    # 设置跟踪器的参数
 
-        #首先利用阈值对检测器的检测结果进行过滤，是否能返回检测置信度?
+    def set_parameters(self):
+        self.T_IOU = 0.5
+        self.T_Score = 0.5
+        self.T_highest = 0.8
+        self.T_time = 3
+    # 每帧初始化预测值及图像
 
-        #非初始帧，追踪位置，设置ID号
-        if(self.frames!=0):
-            #对当前帧每一个检测位置，找与其IOU最大的跟踪位置     
-            for pred in self.preds:
-                rec1=[]#当前帧检测框的矩形
-                rec1.append(pred[0])
-                rec1.append(pred[1])
-                rec1.append(pred[2])
-                rec1.append(pred[3])
-                #遍历所有的跟踪框,找最大IOU
-                max_IOU=-1
-                max_id=0#记录最大IOU的跟踪框的ID
-                for id,track in zip(self.Tracker.keys(),list(self.Tracker.values())):
-                    rec2=[]
-                    rec2.append(track[0])
-                    rec2.append(track[1])
-                    rec2.append(track[2])
-                    rec2.append(track[3])
-                    current_IOU=self.IOU(rec1,rec2)####
-                    if(max_IOU<0):#初始化最大值
-                        max_IOU=current_IOU
-                        max_id=id
-                    if(current_IOU>max_IOU):#找最大值
-                        max_IOU=current_IOU
-                        max_id=id
-                #判断IOU是否大于给定的阈值    
-                if(max_IOU>T_IOU):#大于，说明是一个跟踪中的目标，更新跟踪位置
-                    self.Tracker[max_id]=rec1
-                    is_Track[max_id]=1
-                elif(0<max_IOU<=T_IOU):#小于阈值，进一步判断
-                    #判断轨迹已经持续的帧数是否大于阈值?大于阈值则认为目标消失了?
-                    #认为目标消失,从字典中剔除
-                    self.Tracker.pop(max_id,None)
-                    is_Track.pop(max_id,None)
-                #没有相匹配的框,认为出现了一个新目标，目标加入字典,id值取最大id值+1
-                if(max_IOU<=0):
-                    self.maxed_id+=1#更新最大值
-                    self.Tracker[self.maxed_id]=rec1
-            #看看之前帧跟踪的目标是否都已操作过，若未操作则剔除
-            for id,is_track in zip(is_Track.keys(),list(is_Track.values())):
-                if(is_track==0):#剔除目标
-                    self.Tracker.pop(id,None)
-        self.frames+=1
-    #计算两个矩形框的IOU,矩形框用左上角坐标和右下角坐标表示
-    def IOU(self,rec1,rec2):
-        summ=((rec1[3]-rec1[1])*(rec1[2]-rec1[0]))+((rec2[3]-rec2[1])*(rec2[2]-rec2[0]))
-        left=max(rec1[0],rec2[0])
-        right=min(rec1[2],rec2[2])
-        top=max(rec1[1],rec2[1])
-        bottom=min(rec1[3],rec2[3])
-        if left>=right or top>=bottom:
+    # 追踪器
+    def update(self, detect):
+        self.preds = detect.tolist()  # (1,6)
+
+        is_update = {}
+        for tf in self.Tf.keys():
+            is_update[tf] = 0
+        # 首先利用阈值对检测器的检测结果进行过滤
+        for i, pred in enumerate(self.preds):
+            if pred[4] < self.T_Score:
+                del self.preds[i]
+        # 对跟踪字典进行遍历，找检测到的目标中与其IOU最大的目标
+        to_del = []
+        for id, track in zip(self.Ta.keys(), list(self.Ta.values())):
+            rec1 = track[:4]
+            max_IOU = -1
+            for i, pred in enumerate(self.preds):
+                rec2 = pred[:4]
+                current_IOU = self.IOU(rec1, rec2)
+                if(max_IOU < 0):  # 初始化最大值
+                    max_IOU = current_IOU
+                    max_pred = pred[:5]
+                    max_id = i
+                if(current_IOU > max_IOU):  # 找最大值
+                    max_IOU = current_IOU
+                    max_pred = pred[:5]
+                    max_id = i
+            # 判断IOU是否大于给定的阈值
+            if(max_IOU > self.T_IOU):  # 大于，说明是一个跟踪中的目标，更新跟踪位置
+                self.Ta[id] = max_pred
+                self.last_time[id] += 1
+                if self.highest_score[id] < max_pred[4]:
+                    self.highest_score[id] = max_pred[4]
+                del self.preds[max_id]
+            elif(0 < max_IOU <= self.T_IOU):  # 小于阈值，进一步判断
+                self.last_time[id] += 1
+                if self.highest_score[id] < max_pred[4]:
+                    self.highest_score[id] = max_pred[4]
+                if (self.highest_score[id] > self.T_highest) and (self.last_time[id] > self.T_time):
+                    self.Tf[id] = max_pred
+                    is_update[id] = 1
+                    to_del.append(id)
+            else:  # 说明未匹配上目标
+                to_del.append(id)
+        for del_id in to_del:
+            self.Ta.pop(del_id, None)
+        # 对于检测列表还存在的目标，表明出现了新目标，起始一个新的跟踪
+        for pred in self.preds:
+            self.maxed_id += 1  # 更新已出现过的最大id
+            self.Ta[self.maxed_id] = pred[:5]
+            self.last_time[self.maxed_id] = 1
+            self.highest_score[self.maxed_id] = pred[4]
+        for id, track in zip(self.Ta.keys(), list(self.Ta.values())):
+            if (self.highest_score[id] > self.T_highest) and (self.last_time[id] > self.T_time):
+                self.Tf[id] = track
+                is_update[id] = 1
+        for id in is_update.keys():
+            if is_update[id] == 0:
+                self.Tf.pop(id, None)
+        self.frames += 1
+
+        bbs_ids = []
+        for id, track in zip(self.Tf.keys(), list(self.Tf.values())):
+            x1, y1, x2, y2, score = track
+            bbs_ids.append([x1, y1, x2, y2, id])
+        return bbs_ids
+
+    # 计算两个矩形框的IOU,矩形框用左上角坐标和右下角坐标表示
+    def IOU(self, rec1, rec2):
+        summ = ((rec1[3]-rec1[1])*(rec1[2]-rec1[0])) + \
+            ((rec2[3]-rec2[1])*(rec2[2]-rec2[0]))
+        left = max(rec1[0], rec2[0])
+        right = min(rec1[2], rec2[2])
+        top = max(rec1[1], rec2[1])
+        bottom = min(rec1[3], rec2[3])
+        if left >= right or top >= bottom:
             return 0
         else:
-            inter=(right-left)*(bottom-top)
-            return (inter/(summ-inter))*1.0 
-    #画出跟踪框
-    def draw_bounding(self):
-        for id,track in zip(self.Tracker.keys(),list(self.Tracker.values())):
-            bx, by, bw, bh = track
-            draw_bouding_box(self.img, bx, by, bw, bh, id)
-    #显示
-    def show(self):
-        cv2.imshow('test',self.img)
-        cv2.waitKey(1)
+            inter = (right-left)*(bottom-top)
+            return (inter/(summ-inter))*1.0
