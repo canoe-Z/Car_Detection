@@ -10,7 +10,7 @@ import glob
 
 import os.path
 
-from common import mkdirs
+from dets.common import mkdirs
 
 
 def moveFile(fileDir, tarDir, rate=0.1):

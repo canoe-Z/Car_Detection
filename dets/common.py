@@ -72,13 +72,19 @@ def draw_bouding_box(img, xmin, ymin, xmax, ymax, id: int = None, conf=None):
 
     label = 'car'
     if id is not None:
-        label += (':'+str(id))
+        label += (':'+str(int(id)))
 
     if conf == None:
         plot_one_box((x1, y1, x2, y2), img, (0, 0, 255), label, 3)
     else:
         plot_one_box((x1, y1, x2, y2), img, (0, 0, 255),
                      label+'{:.2f}'.format(conf), 3)
+
+
+def draw_bbs_ids(img, bbs_ids):
+    for bbox_id in bbs_ids:
+        bx, by, bw, bh, id = bbox_id
+        draw_bouding_box(img, bx, by, bw, bh, id)
 
 
 # 滑窗

@@ -7,7 +7,7 @@ import os
 import shutil
 from tqdm import tqdm
 
-from common import mkdirs
+from dets.common import mkdirs
 
 
 def rename_txt(src_dir, dst_dir):
@@ -16,16 +16,16 @@ def rename_txt(src_dir, dst_dir):
     abs_src_path = os.path.abspath(src_dir)
     seqs = os.listdir(abs_src_path)
 
-    for seq in tqdm(seqs):
-        os.chdir(abs_src_path)
-        fileList = os.listdir(seq)
+    # for seq in tqdm(seqs):
+    #     os.chdir(abs_src_path)
+    #     fileList = os.listdir(seq)
 
-        os.chdir(seq)
-        for fileName in fileList:
-            image_name = fileName.split(".")[0]
-            os.rename(fileName, ('{}_{}.txt'.format(image_name, str(seq))))
+    #     os.chdir(seq)
+    #     for fileName in fileList:
+    #         image_name = fileName.split(".")[0]
+    #         os.rename(fileName, ('{}_{}.txt'.format(image_name, str(seq))))
 
-    print("Rename Finished!")
+    # print("Rename Finished!")
 
     os.chdir(pwd)
     for seq in tqdm(seqs):

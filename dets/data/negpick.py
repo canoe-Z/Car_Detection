@@ -2,7 +2,7 @@ import random
 import numpy as np
 import cv2
 
-import common
+import dets.common
 import glob
 import os
 from tqdm import tqdm

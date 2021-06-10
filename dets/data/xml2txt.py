@@ -11,7 +11,7 @@ import abc
 from tqdm import tqdm
 
 
-from common import mkdirs
+from dets.common import mkdirs
 
 
 class XmlReader(object):

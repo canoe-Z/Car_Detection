@@ -96,4 +96,4 @@ class IOU_Tracker():
     #显示
     def show(self):
         cv2.imshow('test',self.img)
-        cv2.waitKey(33)
+        cv2.waitKey(1)

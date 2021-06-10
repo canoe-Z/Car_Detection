@@ -6,9 +6,9 @@ import time
 
 
 def main():
-    det = YOLODetector('./models/yolo/ua_best_old.pt', 0.5)
+    det = YOLODetector('./models/yolo/best_300.pt', 0.7)
     #det = HaarDetector()
-    cap = cv2.VideoCapture('./data/viedo-03.avi')
+    cap = cv2.VideoCapture('./data/cars.mp4')
     i=0
     Tracker={}
     while True:

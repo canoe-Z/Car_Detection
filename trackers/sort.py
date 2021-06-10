@@ -207,7 +207,10 @@ class Sort(object):
     self.trackers = []
     self.frame_count = 0
 
-  def update(self, dets=np.empty((0, 5))):
+  def update(self,dets=np.empty((0, 6))):
+    return self.default_update(dets[:5])
+
+  def default_update(self, dets=np.empty((0, 5))):
     """
     Params:
       dets - a numpy array of detections in the format [[x1,y1,x2,y2,score],[x1,y1,x2,y2,score],...]
