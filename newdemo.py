@@ -1,6 +1,6 @@
 from cv2 import cv2
 from dets.YOLODetector import YOLODetector
-from dets.common import draw_bouding_box, draw_bbs_ids
+from dets.common import draw_bouding_box, draw_bbs_ids, output_video
 from trackers.IOUTracker import IOU_Tracker
 from trackers.sort import *
 
@@ -11,6 +11,8 @@ def main():
     mot_tracker = Sort()  # Sort方法多目标追踪
     cap = cv2.VideoCapture('./data/TestVideo.avi')
     cv2.namedWindow('test')
+
+    #result = []
     for _ in range(1000):
         _, frame = cap.read()
         if frame is None:
@@ -25,10 +27,13 @@ def main():
         # Sort方法
         track = mot_tracker.update(dets)
         draw_bbs_ids(frame, track)
+        #result.append(frame)
         cv2.imshow('test', frame)
         cv2.waitKey(1)
 
-        '''
+    print('Final')
+    # output_video('./out/result.avi', result)
+    '''
         for id, track in tracks:
             x1, y1, x2, y2 = track
             draw_bouding_box(frame, x1, y1, x2, y2, id)

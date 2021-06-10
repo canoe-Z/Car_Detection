@@ -123,3 +123,14 @@ def plot_one_box(x, im, color=(128, 128, 128), label=None, line_thickness=3):
         cv2.rectangle(im, c1, c2, color, -1, cv2.LINE_AA)  # filled
         cv2.putText(im, label, (c1[0], c1[1] - 2), 0, tl / 3,
                     [225, 255, 255], thickness=tf, lineType=cv2.LINE_AA)
+
+
+def output_video(dst_path, frames, fps=25):
+    img_size = (frames[0].shape[1], frames[0].shape[0])
+
+    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+    # if want to write .mp4 file, use 'MP4V'
+    videowriter = cv2.VideoWriter(dst_path, fourcc, fps, img_size)
+
+    for frame in frames:
+        videowriter.write(frame)
