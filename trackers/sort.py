@@ -50,7 +50,6 @@ def iou_batch(bb_test, bb_gt):
   """
   bb_gt = np.expand_dims(bb_gt, 0)
   bb_test = np.expand_dims(bb_test, 1)
-  
   xx1 = np.maximum(bb_test[..., 0], bb_gt[..., 0])
   yy1 = np.maximum(bb_test[..., 1], bb_gt[..., 1])
   xx2 = np.minimum(bb_test[..., 2], bb_gt[..., 2])
@@ -159,9 +158,10 @@ def associate_detections_to_trackers(detections,trackers,iou_threshold = 0.3):
   """
   if(len(trackers)==0):
     return np.empty((0,2),dtype=int), np.arange(len(detections)), np.empty((0,5),dtype=int)
+  if(len(detections)==0):
+    return np.empty((0,2),dtype=int),np.empty((0,5),dtype=int),np.arange(len(trackers))
 
   iou_matrix = iou_batch(detections, trackers)
-
   if min(iou_matrix.shape) > 0:
     a = (iou_matrix > iou_threshold).astype(np.int32)
     if a.sum(1).max() == 1 and a.sum(0).max() == 1:
